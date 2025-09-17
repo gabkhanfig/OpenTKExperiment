@@ -12,13 +12,23 @@ namespace WindowEngine
         private int vertexBufferHandle;
         private int shaderProgramHandle;
         private int vertexArrayHandle;
+        public Vector3 bottomLeftCol;
+        public Vector3 bottomRightCol;
+        public Vector3 topRightCol;
+        public Vector3 topLeftCol;
 
         // Constructor
-        public Game()
+        public Game(Vector3 c1, Vector3 c2, Vector3 c3, Vector3 c4)
             : base(GameWindowSettings.Default, NativeWindowSettings.Default)
         {
             // Set window size to 1280x768
             this.Size = new Vector2i(1280, 768);
+
+            this.bottomLeftCol = c1;
+            this.bottomRightCol = c2;
+            this.topRightCol = c3;
+            this.topLeftCol = c4;
+
 
             // Center the window on the screen
             this.CenterWindow(this.Size);
@@ -43,13 +53,13 @@ namespace WindowEngine
             // Define a simple triangle in normalized device coordinates (NDC)
             float[] vertices = new float[] // first three vertices are the position, next 3 are colour
             {
-                0.5f,  0.5f, 0.0f, 0.1f, 0.5f, 0.8f,   // Top-right vertex
-                -0.5f, -0.5f, 0.0f, 0.2f, 0.4f, 0.1f,  // Bottom-left vertex
-                0.5f, -0.5f, 0.0f, 1.0f, 0.5f, 0.6f,    // Bottom-right vertex
+                0.5f,  0.5f, 0.0f, topRightCol.X, topRightCol.Y, topRightCol.Z,   // Top-right vertex
+                -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,  // Bottom-left vertex
+                0.5f, -0.5f, 0.0f, bottomRightCol.X, bottomRightCol.Y, bottomRightCol.Z,    // Bottom-right vertex
                 // without using index buffers, we just duplicate the connected vertices
-                0.5f,  0.5f, 0.0f, 0.1f, 0.5f, 0.8f,   // Top-right vertex
-                -0.5f, 0.5f, 0.0f, 0.5f, 1.0f, 0.3f,  // Top-left vertex
-                -0.5f, -0.5f, 0.0f, 0.2f, 0.4f, 0.1f,   // Bottom-left vertex
+                0.5f,  0.5f, 0.0f, topRightCol.X, topRightCol.Y, topRightCol.Z,   // Top-right vertex
+                -0.5f, 0.5f, 0.0f, topLeftCol.X, topLeftCol.Y, topLeftCol.Z,  // Top-left vertex
+                -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,   // Bottom-left vertex
 
             };
 

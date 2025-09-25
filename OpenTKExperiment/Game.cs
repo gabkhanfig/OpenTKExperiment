@@ -4,6 +4,8 @@ using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Windowing.Common;
+using OpenTKExperiment;
+using OpenTK.Windowing.GraphicsLibraryFramework;
 
 namespace WindowEngine
 {
@@ -12,22 +14,25 @@ namespace WindowEngine
         private int vertexBufferHandle;
         private int shaderProgramHandle;
         private int vertexArrayHandle;
-        public Vector3 bottomLeftCol;
-        public Vector3 bottomRightCol;
-        public Vector3 topRightCol;
-        public Vector3 topLeftCol;
+        private Cube cube;
+        private Vector3 cameraPosition;
+        private Vector3 lookDirection;
+        private int frameNumber;
+        private bool wireframe;
+
 
         // Constructor
-        public Game(Vector3 c1, Vector3 c2, Vector3 c3, Vector3 c4)
+        public Game()
             : base(GameWindowSettings.Default, NativeWindowSettings.Default)
         {
             // Set window size to 1280x768
-            this.Size = new Vector2i(1280, 768);
+            this.Size = new Vector2i(768, 768);
 
-            this.bottomLeftCol = c1;
-            this.bottomRightCol = c2;
-            this.topRightCol = c3;
-            this.topLeftCol = c4;
+            this.cube = new Cube(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f);
+            this.cameraPosition = new Vector3(0, 0, 1);
+            this.lookDirection = new Vector3(0, 0, 0);
+            this.frameNumber = 0;
+            this.wireframe = false;
 
 
             // Center the window on the screen
@@ -47,26 +52,50 @@ namespace WindowEngine
         {
             base.OnLoad();
 
+            Console.WriteLine("CONTROLS:");
+            Console.WriteLine("Key E: Toggle wireframe");
+
             // Set the background color (RGBA)
             GL.ClearColor(new Color4(0.5f, 0.7f, 0.8f, 1f));
+            // backface culling
+            GL.Enable(EnableCap.CullFace);
+            // Definitely need to re-order the vertices
+            GL.CullFace(CullFaceMode.Front);
 
             // Define a simple triangle in normalized device coordinates (NDC)
-            float[] vertices = new float[] // first three vertices are the position, next 3 are colour
+            Vertex[] vertices = new Vertex[] // first three vertices are the position, next 3 are colour
             {
-                0.5f,  0.5f, 0.0f, topRightCol.X, topRightCol.Y, topRightCol.Z,   // Top-right vertex
+                cube.v000, cube.v001, cube.v101, // bottom
+                cube.v000, cube.v101, cube.v100,
+
+                cube.v000, cube.v100, cube.v110, // north
+                cube.v000, cube.v110, cube.v010,
+
+                cube.v001, cube.v000, cube.v010, // east
+                cube.v001, cube.v010, cube.v011,
+
+                cube.v101, cube.v001, cube.v011, // south
+                cube.v101, cube.v011, cube.v111,
+
+                cube.v100, cube.v101, cube.v111, // west
+                cube.v100, cube.v111, cube.v110,
+
+                cube.v010, cube.v110, cube.v111, // top
+                cube.v010, cube.v111, cube.v011,
+/*
                 -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,  // Bottom-left vertex
                 0.5f, -0.5f, 0.0f, bottomRightCol.X, bottomRightCol.Y, bottomRightCol.Z,    // Bottom-right vertex
                 // without using index buffers, we just duplicate the connected vertices
                 0.5f,  0.5f, 0.0f, topRightCol.X, topRightCol.Y, topRightCol.Z,   // Top-right vertex
                 -0.5f, 0.5f, 0.0f, topLeftCol.X, topLeftCol.Y, topLeftCol.Z,  // Top-left vertex
-                -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,   // Bottom-left vertex
+                -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,   // Bottom-left vertex*/
 
             };
 
             // Generate a Vertex Buffer Object (VBO) to store vertex data on GPU
             vertexBufferHandle = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float), vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float) * 6, vertices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0); // Unbind to prevent accidental modifications
 
             // Generate a Vertex Array Object (VAO) to store the VBO configuration
@@ -89,11 +118,13 @@ namespace WindowEngine
                 layout(location = 0) in vec3 aPosition; // Vertex position input
                 layout(location = 1) in vec3 aColour; // Vertex position input
 
+                uniform mat4 u_cameraMVP;
+
                 out vec3 colour;
 
                 void main()
                 {
-                    gl_Position = vec4(aPosition, 1.0); // Convert vec3 to vec4 for output
+                    gl_Position = u_cameraMVP * vec4(aPosition, 1.0);
                     colour = aColour;
                 }
             ";
@@ -144,6 +175,16 @@ namespace WindowEngine
         // Called every frame to render graphics
         protected override void OnRenderFrame(FrameEventArgs args)
         {
+            //Matrix4 projectMatrix = Matrix4.CreatePerspectiveFieldOfView(1.5708f, 1280.0f / 768.0f, 0.01f, 1000);
+            // just use view matrix for now
+
+            cameraPosition.X = (float)Math.Sin(((double)frameNumber) / 10000);
+            cameraPosition.Y = (float)Math.Sin(((double)frameNumber + 10000) / 10000);
+            cameraPosition.Z = (float)Math.Sin(((double)frameNumber + 20000) / 10000);
+            Vector3 origin = new Vector3(0, 0, -1);
+            Matrix4 viewMatrix = Matrix4.LookAt(origin, origin + cameraPosition, new Vector3(0, 1, 0));
+            Matrix4 mvp = viewMatrix;
+
             base.OnRenderFrame(args);
 
             // Clear the screen with background color
@@ -152,13 +193,18 @@ namespace WindowEngine
             // Use our shader program
             GL.UseProgram(shaderProgramHandle);
 
+            int location = GL.GetUniformLocation(shaderProgramHandle, "u_cameraMVP");
+            GL.UniformMatrix4(location, true, ref mvp);
+
             // Bind the VAO and draw the triangle
             GL.BindVertexArray(vertexArrayHandle);
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 6); // 6 vertices for 2 triangles to make a rectangle
+            GL.DrawArrays(PrimitiveType.Triangles, 0, 36); // 36 vertices for 12 triangles to make a cube-ish
             GL.BindVertexArray(0);
 
             // Display the rendered frame
             SwapBuffers();
+
+            frameNumber += 1;
         }
 
         // Called when the game is closing or resources need to be released
@@ -186,6 +232,21 @@ namespace WindowEngine
                 string infoLog = GL.GetShaderInfoLog(shaderHandle);
                 Console.WriteLine($"Error compiling {shaderName}: {infoLog}");
             }
+        }
+        protected override void OnKeyDown(KeyboardKeyEventArgs e)
+        {
+            if (e.Key == Keys.E)
+            {
+                if(this.wireframe){
+                    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
+                    this.wireframe = false;
+                }
+                else {
+                    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
+                    this.wireframe = true;
+                }
+            }
+            base.OnKeyDown(e);
         }
     }
 }

@@ -77,3 +77,13 @@ Equals
 (0, 0.35355338, -0.35355338)
 (0, 2.828427, 2.828427)                                                                                                              
 ```
+
+## Rendering a 3D Cube
+
+I am continuing to use OpenTK, building off of my the previous work.
+
+I generated a cube structure based on a base position and equivalent side lengths. From there I populated the buffers. I also used a Model View Projection matrix (just as the view matrix for now) to rotate the camera around the cube. The cube is stationary in world-space. This MVP was passed to the vertex shader as a uniform.
+
+I also added one control. Through pressing the `E` key, you can toggle wireframe mode.
+
+I also enabled front-face culling. While backfacing culling was desired, the winding order I currently have set results in the interior faces being considered the front faces. That's something I should fix.

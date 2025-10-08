@@ -9,13 +9,17 @@ namespace OpenTKExperiment
 {
     public struct Vertex {
         Vector3 position;
+        Vector3 normal;
         Vector3 color;
+        Vector2 texCoord;
 
-        public Vertex(Vector3 pos, Vector3 col)
+        public Vertex(Vector3 pos, Vector3 norm, Vector3 col, Vector2 tex)
         {
             position = pos;
+            normal = norm;
             color = col;
             FunnyNormalize(ref col);
+            texCoord = tex;
         }
 
         static void FunnyNormalize(ref Vector3 v)
@@ -46,6 +50,52 @@ namespace OpenTKExperiment
             }
         }
     }
+
+    public struct Square {
+        Vertex v00;
+        Vertex v01;
+        Vertex v10;
+        Vertex v11;
+
+        public Square(Vector3 baseVector, float length, Vector3 normal)
+        {
+            Vector3 inverseNorm = flipNormal(normal);
+            Vector3 p00 = baseVector;
+            Vector3 p11 = baseVector + (inverseNorm * new Vector3(length));
+            Vector3 p01 = Vector3.Zero;
+            Vector3 p10 = Vector3.Zero;
+            if (normal.X == 1)
+            {
+                p01 = baseVector + new Vector3(0, 0, length);
+                p10 = baseVector + new Vector3(0, length, 0);
+            }
+            else if(normal.Y == 1)
+            {
+                p01 = baseVector + new Vector3(0, 0, length);
+                p10 = baseVector + new Vector3(length, 0, 0);
+            }
+            else if(normal.Z == 1)
+            {
+                p01 = baseVector + new Vector3(0, length, 0);
+                p10 = baseVector + new Vector3(length, 0, 0);
+            }
+
+            v00 = new Vertex(p00, normal, p00, new Vector2(0, 0));
+            v01 = new Vertex(p01, normal, p01, new Vector2(0, 1));
+            v10 = new Vertex(p10, normal, p10, new Vector2(1, 0));
+            v11 = new Vertex(p11, normal, p11, new Vector2(1, 1));
+        }
+
+        static Vector3 flipNormal(Vector3 v)
+        {
+            Vector3 inverse = new Vector3();
+            inverse.X = (v.X == 0) ? 1 : 0;
+            inverse.Y = (v.Y == 0) ? 1 : 0;
+            inverse.Z = (v.Z == 0) ? 1 : 0;
+            return inverse;
+        }
+    }
+
 
 
 
@@ -90,14 +140,14 @@ namespace OpenTKExperiment
             Vector3 c110 = new Vector3(1, 1, 0);
             Vector3 c111 = new Vector3(1, 1, 1);
 
-            v000 = new Vertex(p000, c000);
-            v001 = new Vertex(p001, c001);
-            v010 = new Vertex(p010, c010);
-            v011 = new Vertex(p011, c011);
-            v100 = new Vertex(p100, c100);
-            v101 = new Vertex(p101, c101);
-            v110 = new Vertex(p110, c110);
-            v111 = new Vertex(p111, c111);
+            v000 = new Vertex(p000, Vector3.Zero, c000, new Vector2(0, 0)); // good
+            v001 = new Vertex(p001, Vector3.Zero, c001, new Vector2(1, 0)); // good
+            v010 = new Vertex(p010, Vector3.Zero, c010, new Vector2(0, 1)); // good
+            v011 = new Vertex(p011, Vector3.Zero, c011, new Vector2(1, 1)); // good
+            v100 = new Vertex(p100, Vector3.Zero, c100, new Vector2(1, 0)); // good
+            v101 = new Vertex(p101, Vector3.Zero, c101, new Vector2(0, 0)); // maybe
+            v110 = new Vertex(p110, Vector3.Zero, c110, new Vector2(1, 1)); // good
+            v111 = new Vertex(p111, Vector3.Zero, c111, new Vector2(0, 1)); // maybe
         }
     }
 }

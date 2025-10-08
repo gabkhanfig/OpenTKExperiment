@@ -2,10 +2,13 @@
 using OpenTK;
 using OpenTK.Mathematics;
 using OpenTK.Windowing.Desktop;
-using OpenTK.Graphics.OpenGL;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Windowing.Common;
 using OpenTKExperiment;
 using OpenTK.Windowing.GraphicsLibraryFramework;
+using System.Drawing;
+using System.Drawing.Imaging;
+using System.IO;
 
 namespace WindowEngine
 {
@@ -14,12 +17,17 @@ namespace WindowEngine
         private int vertexBufferHandle;
         private int shaderProgramHandle;
         private int vertexArrayHandle;
+        private int textureHandle;
         private Cube cube;
         private Vector3 cameraPosition;
         private Vector3 lookDirection;
         private int frameNumber;
         private bool wireframe;
 
+        // Default wrapping and filtering
+        private TextureWrapMode wrapMode = TextureWrapMode.Repeat;
+        private TextureMinFilter minFilter = TextureMinFilter.LinearMipmapLinear;
+        private TextureMagFilter magFilter = TextureMagFilter.Linear;
 
         // Constructor
         public Game()
@@ -95,7 +103,7 @@ namespace WindowEngine
             // Generate a Vertex Buffer Object (VBO) to store vertex data on GPU
             vertexBufferHandle = GL.GenBuffer();
             GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float) * 6, vertices, BufferUsageHint.StaticDraw);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float) * (3 + 3 + 3 + 2), vertices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0); // Unbind to prevent accidental modifications
 
             // Generate a Vertex Array Object (VAO) to store the VBO configuration
@@ -104,11 +112,15 @@ namespace WindowEngine
 
             // Bind the VBO and define the layout of vertex data for shaders
             GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
-            const int totalStride = 6 * sizeof(float);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, totalStride, 0); // vertex shader layout location 0
+            const int totalStride = (3 + 3 + 3 + 2) * sizeof(float);
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, totalStride, 0); // vertex shader layout location 0 position
             GL.EnableVertexAttribArray(0);
-            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, totalStride, 12); // vertex shader layout location 1
+            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, totalStride, 12); // vertex shader layout location 1 normal
             GL.EnableVertexAttribArray(1);
+            GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, totalStride, 24); // vertex shader layout location 2 colour
+            GL.EnableVertexAttribArray(2);
+            GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, totalStride, 36); // vertex shader layout location 2 texture
+            GL.EnableVertexAttribArray(3);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindVertexArray(0);
 
@@ -116,16 +128,20 @@ namespace WindowEngine
             string vertexShaderCode = @"
                 #version 330 core
                 layout(location = 0) in vec3 aPosition; // Vertex position input
-                layout(location = 1) in vec3 aColour; // Vertex position input
+                layout(location = 1) in vec3 aNormal; // Vertex normal input
+                layout(location = 2) in vec3 aColour; // Vertex colour input
+                layout(location = 3) in vec2 aTexCoord; // Vertex texture input
 
                 uniform mat4 u_cameraMVP;
 
                 out vec3 colour;
+                out vec2 texCoord;
 
                 void main()
                 {
                     gl_Position = u_cameraMVP * vec4(aPosition, 1.0);
                     colour = aColour;
+                    texCoord = aTexCoord;
                 }
             ";
 
@@ -134,10 +150,14 @@ namespace WindowEngine
                 #version 330 core
                 out vec4 FragColor;
                 in vec3 colour;
+                in vec2 texCoord;
+
+                uniform sampler2D ourTexture;
 
                 void main()
                 {
-                    FragColor = vec4(colour.r, colour.g, colour.b, 1.0f); // Orange-red color
+                    FragColor = vec4(colour.r, colour.g, colour.b, 1.0f) * texture(ourTexture, texCoord);
+                    // FragColor = vec4(colour.r, colour.g, colour.b, 1.0f);
                 }
             ";
 
@@ -163,6 +183,20 @@ namespace WindowEngine
             GL.DetachShader(shaderProgramHandle, fragmentShaderHandle);
             GL.DeleteShader(vertexShaderHandle);
             GL.DeleteShader(fragmentShaderHandle);
+
+            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+            string projectDirectory = Directory.GetParent(baseDir).Parent.Parent.Parent.FullName;
+            Console.WriteLine(projectDirectory);
+            string texturePath = Path.Combine(projectDirectory, "Assets", "wall.jpg");
+            Console.WriteLine(texturePath);
+            textureHandle = LoadTexture(texturePath);
+
+            Console.WriteLine("X");
+            Square sX = new Square(Vector3.Zero, 2, Vector3.UnitX);
+            Console.WriteLine("Y");
+            Square sY = new Square(Vector3.Zero, 2, Vector3.UnitY);
+            Console.WriteLine("Z");
+            Square sZ = new Square(Vector3.Zero, 2, Vector3.UnitZ);
         }
 
         // Called every frame to update game logic
@@ -180,7 +214,7 @@ namespace WindowEngine
 
             cameraPosition.X = (float)Math.Sin(((double)frameNumber) / 10000);
             cameraPosition.Y = (float)Math.Sin(((double)frameNumber + 10000) / 10000);
-            cameraPosition.Z = (float)Math.Sin(((double)frameNumber + 20000) / 10000);
+            cameraPosition.Z = (float)Math.Sin(((double)frameNumber + 10000) / 5000);
             Vector3 origin = new Vector3(0, 0, -1);
             Matrix4 viewMatrix = Matrix4.LookAt(origin, origin + cameraPosition, new Vector3(0, 1, 0));
             Matrix4 mvp = viewMatrix;
@@ -192,6 +226,9 @@ namespace WindowEngine
 
             // Use our shader program
             GL.UseProgram(shaderProgramHandle);
+            // And texture
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, textureHandle);
 
             int location = GL.GetUniformLocation(shaderProgramHandle, "u_cameraMVP");
             GL.UniformMatrix4(location, true, ref mvp);
@@ -247,6 +284,37 @@ namespace WindowEngine
                 }
             }
             base.OnKeyDown(e);
+        }
+
+        private int LoadTexture(string path)
+        {
+            if (!File.Exists(path)) throw new FileNotFoundException($"Could not find texture file: {path}");
+
+            int texId = GL.GenTexture();
+            GL.BindTexture(TextureTarget.Texture2D, texId);
+
+            // Initial wrap and filter
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)wrapMode);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)wrapMode);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)minFilter);
+            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)magFilter);
+
+            using (Bitmap bmp = new Bitmap(path))
+            {
+                bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+                var data = bmp.LockBits(
+                    new Rectangle(0, 0, bmp.Width, bmp.Height),
+                    ImageLockMode.ReadOnly,
+                    System.Drawing.Imaging.PixelFormat.Format32bppArgb); // fully qualified
+
+                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, data.Width, data.Height, 0,
+                              OpenTK.Graphics.OpenGL4.PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
+
+                bmp.UnlockBits(data);
+            }
+
+            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
+            return texId;
         }
     }
 }

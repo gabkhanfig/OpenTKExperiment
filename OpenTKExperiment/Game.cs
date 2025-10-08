@@ -74,9 +74,9 @@ namespace WindowEngine
             Square bottom = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitY);
             Square north = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
             Square east = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitZ);
-            Square south = new Square(new Vector3(0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
-            Square west = new Square(new Vector3(-0.25f, -0.25f, 0.25f), 0.5f, Vector3.UnitZ);
-            Square top = new Square(new Vector3(-0.25f, 0.25f, -0.25f), 0.5f, Vector3.UnitY);
+            Square south = new Square(new Vector3(0.25f, -0.25f, -0.25f), 0.5f, -Vector3.UnitX);
+            Square west = new Square(new Vector3(-0.25f, -0.25f, 0.25f), 0.5f, -Vector3.UnitZ);
+            Square top = new Square(new Vector3(-0.25f, 0.25f, -0.25f), 0.5f, -Vector3.UnitY);
 
 
             // Define a simple triangle in normalized device coordinates (NDC)
@@ -154,14 +154,21 @@ namespace WindowEngine
                 layout(location = 2) in vec3 aColour; // Vertex colour input
                 layout(location = 3) in vec2 aTexCoord; // Vertex texture input
 
-                uniform mat4 u_cameraMVP;
+                uniform mat4 model;
+                uniform mat4 view;
+                uniform mat4 projection;
 
+                out vec3 fragPos;
+                out vec3 normal;
                 out vec3 colour;
                 out vec2 texCoord;
 
                 void main()
                 {
-                    gl_Position = u_cameraMVP * vec4(aPosition, 1.0);
+                    // gl_Position = view * vec4(aPosition, 1.0);
+                    fragPos = vec3(model * vec4(aPosition, 1.0));
+                    normal = mat3(transpose(inverse(model))) * aNormal;
+                    gl_Position = projection * view * vec4(aPosition, 1.0);
                     colour = aColour;
                     texCoord = aTexCoord;
                 }
@@ -171,15 +178,43 @@ namespace WindowEngine
             string fragmentShaderCode = @"
                 #version 330 core
                 out vec4 FragColor;
+                in vec3 fragPos;
+                in vec3 normal;
                 in vec3 colour;
                 in vec2 texCoord;
+
+                uniform vec3 lightPos; // Position of the point light
+                uniform vec3 viewPos;  // Camera position
+                uniform vec3 lightColor; // Color of the light
+                uniform vec3 objectColor; // Color of the object
 
                 uniform sampler2D ourTexture;
 
                 void main()
                 {
-                    FragColor = vec4(colour.r, colour.g, colour.b, 1.0f) * texture(ourTexture, texCoord);
+                    // FragColor = vec4(colour.r, colour.g, colour.b, 1.0f) * texture(ourTexture, texCoord);
                     // FragColor = vec4(colour.r, colour.g, colour.b, 1.0f);
+
+                    // Ambient
+                    float ambientStrength = 0.15;
+                    vec3 ambient = ambientStrength * lightColor;
+ 
+                    // Diffuse
+                    vec3 norm = normalize(normal);
+                    vec3 lightDir = normalize(lightPos - fragPos);
+                    float diff = max(dot(norm, lightDir), 0.0);
+                    vec3 diffuse = diff * lightColor;
+ 
+                    // Specular
+                    float specularStrength = 0.9;
+                    vec3 viewDir = normalize(viewPos - fragPos);
+                    vec3 reflectDir = reflect(-lightDir, norm);
+                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
+                    vec3 specular = specularStrength * spec * lightColor;
+ 
+                    // Combine results
+                    vec3 result = (ambient + diffuse + specular) * objectColor;
+                    FragColor = vec4(result, 1.0) * texture(ourTexture, texCoord);
                 }
             ";
 
@@ -212,13 +247,6 @@ namespace WindowEngine
             string texturePath = Path.Combine(projectDirectory, "Assets", "wall.jpg");
             Console.WriteLine(texturePath);
             textureHandle = LoadTexture(texturePath);
-
-            Console.WriteLine("X");
-            Square sX = new Square(Vector3.Zero, 2, Vector3.UnitX);
-            Console.WriteLine("Y");
-            Square sY = new Square(Vector3.Zero, 2, Vector3.UnitY);
-            Console.WriteLine("Z");
-            Square sZ = new Square(Vector3.Zero, 2, Vector3.UnitZ);
         }
 
         // Called every frame to update game logic
@@ -238,8 +266,9 @@ namespace WindowEngine
             cameraPosition.Y = (float)Math.Sin(((double)frameNumber + 10000) / 10000);
             cameraPosition.Z = (float)Math.Sin(((double)frameNumber + 10000) / 5000);
             Vector3 origin = new Vector3(0, 0, -1);
-            Matrix4 viewMatrix = Matrix4.LookAt(origin, origin + cameraPosition, new Vector3(0, 1, 0));
-            Matrix4 mvp = viewMatrix;
+            Matrix4 model = Matrix4.Identity;
+            Matrix4 view = Matrix4.LookAt(origin, origin + cameraPosition, new Vector3(0, 1, 0));
+            Matrix4 projection = Matrix4.Identity;
 
             base.OnRenderFrame(args);
 
@@ -252,8 +281,28 @@ namespace WindowEngine
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.BindTexture(TextureTarget.Texture2D, textureHandle);
 
-            int location = GL.GetUniformLocation(shaderProgramHandle, "u_cameraMVP");
-            GL.UniformMatrix4(location, true, ref mvp);
+            int modelLocation = GL.GetUniformLocation(shaderProgramHandle, "model");
+            GL.UniformMatrix4(modelLocation, true, ref model);
+            int viewLocation = GL.GetUniformLocation(shaderProgramHandle, "view");
+            GL.UniformMatrix4(viewLocation, true, ref view);
+            int projectionLocation = GL.GetUniformLocation(shaderProgramHandle, "projection");
+            GL.UniformMatrix4(projectionLocation, true, ref projection);
+
+            int lightPosLoc = GL.GetUniformLocation(shaderProgramHandle, "lightPos");
+            Vector3 lightPos = origin; // new Vector3(2, 2, 2);
+            GL.Uniform3(lightPosLoc, lightPos.X, lightPos.Y, lightPos.Z);
+
+            int viewPosLoc = GL.GetUniformLocation(shaderProgramHandle, "viewPos");
+            Vector3 viewPos = origin;
+            GL.Uniform3(viewPosLoc, viewPos.X, viewPos.Y, viewPos.Z);
+
+            int lightColLoc = GL.GetUniformLocation(shaderProgramHandle, "lightColor");
+            Vector3 lightCol = new Vector3(0.6f, 0.5f, 0.7f);
+            GL.Uniform3(lightColLoc, lightCol.X, lightCol.Y, lightCol.Z);
+
+            int objectColLoc = GL.GetUniformLocation(shaderProgramHandle, "objectColor");
+            Vector3 objectCol = new Vector3(1, 1, 1);
+            GL.Uniform3(objectColLoc, lightCol.X, lightCol.Y, lightCol.Z);
 
             // Bind the VAO and draw the triangle
             GL.BindVertexArray(vertexArrayHandle);

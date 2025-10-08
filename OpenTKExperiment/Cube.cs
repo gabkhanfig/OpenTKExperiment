@@ -64,35 +64,20 @@ namespace OpenTKExperiment
             Vector3 p11 = baseVector + (inverseNorm * new Vector3(length));
             Vector3 p01 = Vector3.Zero;
             Vector3 p10 = Vector3.Zero;
-            if (normal.X == 1)
+            if (normal.X == 1 || normal.X == -1)
             {
                 p01 = baseVector + new Vector3(0, length, 0);
                 p10 = baseVector + new Vector3(0, 0, length);
             }
-            else if(normal.Y == 1)
+            else if(normal.Y == 1 || normal.Y == -1)
             {
                 p01 = baseVector + new Vector3(length, 0, 0);
                 p10 = baseVector + new Vector3(0, 0, length);
             }
-            else if(normal.Z == 1)
+            else if(normal.Z == 1 || normal.Z == -1)
             {
                 p01 = baseVector + new Vector3(length, 0, 0);
                 p10 = baseVector + new Vector3(0, length, 0);
-            }
-            if (normal.X == -1)
-            {
-                p01 = baseVector + new Vector3(0, -length, 0);
-                p10 = baseVector + new Vector3(0, 0, -length);
-            }
-            else if(normal.Y == -1)
-            {
-                p01 = baseVector + new Vector3(-length, 0, 0);
-                p10 = baseVector + new Vector3(0, 0, -length);
-            }
-            else if(normal.Z == -1)
-            {
-                p01 = baseVector + new Vector3(-length, 0, 0);
-                p10 = baseVector + new Vector3(0, -length, 0);
             }
 
             v00 = new Vertex(p00, normal, new Vector3(1, 1, 1), new Vector2(0, 0));

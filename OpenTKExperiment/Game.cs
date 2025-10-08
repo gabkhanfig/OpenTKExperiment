@@ -23,6 +23,7 @@ namespace WindowEngine
         private Vector3 lookDirection;
         private int frameNumber;
         private bool wireframe;
+        private int vertexCount;
 
         // Default wrapping and filtering
         private TextureWrapMode wrapMode = TextureWrapMode.Repeat;
@@ -70,26 +71,46 @@ namespace WindowEngine
             // Definitely need to re-order the vertices
             GL.CullFace(CullFaceMode.Front);
 
+            Square bottom = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitY);
+            Square north = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
+            Square east = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitZ);
+            Square south = new Square(new Vector3(0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
+            Square west = new Square(new Vector3(-0.25f, -0.25f, 0.25f), 0.5f, Vector3.UnitZ);
+            Square top = new Square(new Vector3(-0.25f, 0.25f, -0.25f), 0.5f, Vector3.UnitY);
+
+
             // Define a simple triangle in normalized device coordinates (NDC)
             Vertex[] vertices = new Vertex[] // first three vertices are the position, next 3 are colour
             {
-                cube.v000, cube.v001, cube.v101, // bottom
-                cube.v000, cube.v101, cube.v100,
+/*                cube.v000, cube.v001, cube.v101, // bottom
+                cube.v000, cube.v101, cube.v100,*/
+                bottom.v00, bottom.v01, bottom.v11,
+                bottom.v00, bottom.v11, bottom.v10,
+                
+/*                cube.v000, cube.v100, cube.v110, // north
+                cube.v000, cube.v110, cube.v010,*/
+                north.v00, north.v10, north.v11,
+                north.v00, north.v11, north.v01,
 
-                cube.v000, cube.v100, cube.v110, // north
-                cube.v000, cube.v110, cube.v010,
+/*                cube.v001, cube.v000, cube.v010, // east
+                cube.v001, cube.v010, cube.v011,*/
+                east.v01, east.v00, east.v10,
+                east.v01, east.v10, east.v11,
 
-                cube.v001, cube.v000, cube.v010, // east
-                cube.v001, cube.v010, cube.v011,
+/*                cube.v101, cube.v001, cube.v011, // south
+                cube.v101, cube.v011, cube.v111,*/
+                south.v10, south.v00, south.v01,
+                south.v10, south.v01, south.v11,
 
-                cube.v101, cube.v001, cube.v011, // south
-                cube.v101, cube.v011, cube.v111,
+/*                cube.v100, cube.v101, cube.v111, // west
+                cube.v100, cube.v111, cube.v110,*/
+                west.v00, west.v01, west.v11,
+                west.v00, west.v11, west.v10,
 
-                cube.v100, cube.v101, cube.v111, // west
-                cube.v100, cube.v111, cube.v110,
-
-                cube.v010, cube.v110, cube.v111, // top
-                cube.v010, cube.v111, cube.v011,
+/*                cube.v010, cube.v110, cube.v111, // top
+                cube.v010, cube.v111, cube.v011,*/
+                top.v00, top.v10, top.v11,
+                top.v00, top.v11, top.v01
 /*
                 -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,  // Bottom-left vertex
                 0.5f, -0.5f, 0.0f, bottomRightCol.X, bottomRightCol.Y, bottomRightCol.Z,    // Bottom-right vertex
@@ -105,6 +126,7 @@ namespace WindowEngine
             GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
             GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float) * (3 + 3 + 3 + 2), vertices, BufferUsageHint.StaticDraw);
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0); // Unbind to prevent accidental modifications
+            vertexCount = vertices.Length;
 
             // Generate a Vertex Array Object (VAO) to store the VBO configuration
             vertexArrayHandle = GL.GenVertexArray();
@@ -235,7 +257,7 @@ namespace WindowEngine
 
             // Bind the VAO and draw the triangle
             GL.BindVertexArray(vertexArrayHandle);
-            GL.DrawArrays(PrimitiveType.Triangles, 0, 36); // 36 vertices for 12 triangles to make a cube-ish
+            GL.DrawArrays(PrimitiveType.Triangles, 0, vertexCount);
             GL.BindVertexArray(0);
 
             // Display the rendered frame

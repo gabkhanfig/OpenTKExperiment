@@ -8,10 +8,10 @@ using OpenTK.Mathematics;
 namespace OpenTKExperiment
 {
     public struct Vertex {
-        Vector3 position;
-        Vector3 normal;
-        Vector3 color;
-        Vector2 texCoord;
+        public Vector3 position;
+        public Vector3 normal;
+        public Vector3 color;
+        public Vector2 texCoord;
 
         public Vertex(Vector3 pos, Vector3 norm, Vector3 col, Vector2 tex)
         {
@@ -52,10 +52,10 @@ namespace OpenTKExperiment
     }
 
     public struct Square {
-        Vertex v00;
-        Vertex v01;
-        Vertex v10;
-        Vertex v11;
+        public Vertex v00;
+        public Vertex v01;
+        public Vertex v10;
+        public Vertex v11;
 
         public Square(Vector3 baseVector, float length, Vector3 normal)
         {
@@ -66,24 +66,39 @@ namespace OpenTKExperiment
             Vector3 p10 = Vector3.Zero;
             if (normal.X == 1)
             {
-                p01 = baseVector + new Vector3(0, 0, length);
-                p10 = baseVector + new Vector3(0, length, 0);
+                p01 = baseVector + new Vector3(0, length, 0);
+                p10 = baseVector + new Vector3(0, 0, length);
             }
             else if(normal.Y == 1)
             {
-                p01 = baseVector + new Vector3(0, 0, length);
-                p10 = baseVector + new Vector3(length, 0, 0);
+                p01 = baseVector + new Vector3(length, 0, 0);
+                p10 = baseVector + new Vector3(0, 0, length);
             }
             else if(normal.Z == 1)
             {
-                p01 = baseVector + new Vector3(0, length, 0);
-                p10 = baseVector + new Vector3(length, 0, 0);
+                p01 = baseVector + new Vector3(length, 0, 0);
+                p10 = baseVector + new Vector3(0, length, 0);
+            }
+            if (normal.X == -1)
+            {
+                p01 = baseVector + new Vector3(0, -length, 0);
+                p10 = baseVector + new Vector3(0, 0, -length);
+            }
+            else if(normal.Y == -1)
+            {
+                p01 = baseVector + new Vector3(-length, 0, 0);
+                p10 = baseVector + new Vector3(0, 0, -length);
+            }
+            else if(normal.Z == -1)
+            {
+                p01 = baseVector + new Vector3(-length, 0, 0);
+                p10 = baseVector + new Vector3(0, -length, 0);
             }
 
-            v00 = new Vertex(p00, normal, p00, new Vector2(0, 0));
-            v01 = new Vertex(p01, normal, p01, new Vector2(0, 1));
-            v10 = new Vertex(p10, normal, p10, new Vector2(1, 0));
-            v11 = new Vertex(p11, normal, p11, new Vector2(1, 1));
+            v00 = new Vertex(p00, normal, new Vector3(1, 1, 1), new Vector2(0, 0));
+            v01 = new Vertex(p01, normal, new Vector3(1, 1, 1), new Vector2(0, 1));
+            v10 = new Vertex(p10, normal, new Vector3(1, 1, 1), new Vector2(1, 0));
+            v11 = new Vertex(p11, normal, new Vector3(1, 1, 1), new Vector2(1, 1));
         }
 
         static Vector3 flipNormal(Vector3 v)
@@ -95,10 +110,6 @@ namespace OpenTKExperiment
             return inverse;
         }
     }
-
-
-
-
 
     public struct Cube
     {
@@ -121,15 +132,6 @@ namespace OpenTKExperiment
             Vector3 p101 = new Vector3(baseVector.X + length, baseVector.Y, baseVector.Z + length);
             Vector3 p110 = new Vector3(baseVector.X, baseVector.Y + length, baseVector.Z + length);
             Vector3 p111 = new Vector3(baseVector.X + length, baseVector.Y + length, baseVector.Z + length);
-
-/*            Console.WriteLine($"p000 {p000}");
-            Console.WriteLine($"p001 {p001}");
-            Console.WriteLine($"p010 {p010}");
-            Console.WriteLine($"p011 {p011}");
-            Console.WriteLine($"p100 {p100}");
-            Console.WriteLine($"p101 {p101}");
-            Console.WriteLine($"p110 {p110}");
-            Console.WriteLine($"p111 {p111}");*/
 
             Vector3 c000 = new Vector3(0, 0, 0);
             Vector3 c001 = new Vector3(0, 0, 1);

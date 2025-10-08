@@ -18,12 +18,19 @@ namespace WindowEngine
         private int shaderProgramHandle;
         private int vertexArrayHandle;
         private int textureHandle;
-        private Cube cube;
         private Vector3 cameraPosition;
         private Vector3 lookDirection;
         private int frameNumber;
         private bool wireframe;
         private int vertexCount;
+        private Camera camera;
+        Square bottom = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitY);
+        Square north = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
+        Square east = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitZ);
+        Square south = new Square(new Vector3(0.25f, -0.25f, -0.25f), 0.5f, -Vector3.UnitX);
+        Square west = new Square(new Vector3(-0.25f, -0.25f, 0.25f), 0.5f, -Vector3.UnitZ);
+        Square top = new Square(new Vector3(-0.25f, 0.25f, -0.25f), 0.5f, -Vector3.UnitY); 
+        Vector3 lightCol = new Vector3(0.6f, 0.5f, 0.7f);
 
         // Default wrapping and filtering
         private TextureWrapMode wrapMode = TextureWrapMode.Repeat;
@@ -37,12 +44,11 @@ namespace WindowEngine
             // Set window size to 1280x768
             this.Size = new Vector2i(768, 768);
 
-            this.cube = new Cube(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f);
             this.cameraPosition = new Vector3(0, 0, 1);
             this.lookDirection = new Vector3(0, 0, 0);
             this.frameNumber = 0;
             this.wireframe = false;
-
+            this.camera = new Camera(new Vector3(0, 0, -1));
 
             // Center the window on the screen
             this.CenterWindow(this.Size);
@@ -63,6 +69,7 @@ namespace WindowEngine
 
             Console.WriteLine("CONTROLS:");
             Console.WriteLine("Key E: Toggle wireframe");
+            Console.WriteLine("WASD: Spin Cube");
 
             // Set the background color (RGBA)
             GL.ClearColor(new Color4(0.5f, 0.7f, 0.8f, 1f));
@@ -71,54 +78,28 @@ namespace WindowEngine
             // Definitely need to re-order the vertices
             GL.CullFace(CullFaceMode.Front);
 
-            Square bottom = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitY);
-            Square north = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
-            Square east = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitZ);
-            Square south = new Square(new Vector3(0.25f, -0.25f, -0.25f), 0.5f, -Vector3.UnitX);
-            Square west = new Square(new Vector3(-0.25f, -0.25f, 0.25f), 0.5f, -Vector3.UnitZ);
-            Square top = new Square(new Vector3(-0.25f, 0.25f, -0.25f), 0.5f, -Vector3.UnitY);
-
+            
 
             // Define a simple triangle in normalized device coordinates (NDC)
             Vertex[] vertices = new Vertex[] // first three vertices are the position, next 3 are colour
             {
-/*                cube.v000, cube.v001, cube.v101, // bottom
-                cube.v000, cube.v101, cube.v100,*/
                 bottom.v00, bottom.v01, bottom.v11,
                 bottom.v00, bottom.v11, bottom.v10,
                 
-/*                cube.v000, cube.v100, cube.v110, // north
-                cube.v000, cube.v110, cube.v010,*/
                 north.v00, north.v10, north.v11,
                 north.v00, north.v11, north.v01,
 
-/*                cube.v001, cube.v000, cube.v010, // east
-                cube.v001, cube.v010, cube.v011,*/
                 east.v01, east.v00, east.v10,
                 east.v01, east.v10, east.v11,
 
-/*                cube.v101, cube.v001, cube.v011, // south
-                cube.v101, cube.v011, cube.v111,*/
                 south.v10, south.v00, south.v01,
                 south.v10, south.v01, south.v11,
 
-/*                cube.v100, cube.v101, cube.v111, // west
-                cube.v100, cube.v111, cube.v110,*/
                 west.v00, west.v01, west.v11,
                 west.v00, west.v11, west.v10,
 
-/*                cube.v010, cube.v110, cube.v111, // top
-                cube.v010, cube.v111, cube.v011,*/
                 top.v00, top.v10, top.v11,
                 top.v00, top.v11, top.v01
-/*
-                -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,  // Bottom-left vertex
-                0.5f, -0.5f, 0.0f, bottomRightCol.X, bottomRightCol.Y, bottomRightCol.Z,    // Bottom-right vertex
-                // without using index buffers, we just duplicate the connected vertices
-                0.5f,  0.5f, 0.0f, topRightCol.X, topRightCol.Y, topRightCol.Z,   // Top-right vertex
-                -0.5f, 0.5f, 0.0f, topLeftCol.X, topLeftCol.Y, topLeftCol.Z,  // Top-left vertex
-                -0.5f, -0.5f, 0.0f, bottomLeftCol.X, bottomLeftCol.Y, bottomLeftCol.Z,   // Bottom-left vertex*/
-
             };
 
             // Generate a Vertex Buffer Object (VBO) to store vertex data on GPU
@@ -252,6 +233,8 @@ namespace WindowEngine
         // Called every frame to update game logic
         protected override void OnUpdateFrame(FrameEventArgs args)
         {
+            camera.update((float)args.Time, KeyboardState);
+
             base.OnUpdateFrame(args);
             // Handle input, animations, physics, AI, etc.
         }
@@ -259,15 +242,8 @@ namespace WindowEngine
         // Called every frame to render graphics
         protected override void OnRenderFrame(FrameEventArgs args)
         {
-            //Matrix4 projectMatrix = Matrix4.CreatePerspectiveFieldOfView(1.5708f, 1280.0f / 768.0f, 0.01f, 1000);
-            // just use view matrix for now
-
-            cameraPosition.X = (float)Math.Sin(((double)frameNumber) / 10000);
-            cameraPosition.Y = (float)Math.Sin(((double)frameNumber + 10000) / 10000);
-            cameraPosition.Z = (float)Math.Sin(((double)frameNumber + 10000) / 5000);
-            Vector3 origin = new Vector3(0, 0, -1);
             Matrix4 model = Matrix4.Identity;
-            Matrix4 view = Matrix4.LookAt(origin, origin + cameraPosition, new Vector3(0, 1, 0));
+            Matrix4 view = camera.viewMatrix();
             Matrix4 projection = Matrix4.Identity;
 
             base.OnRenderFrame(args);
@@ -289,15 +265,17 @@ namespace WindowEngine
             GL.UniformMatrix4(projectionLocation, true, ref projection);
 
             int lightPosLoc = GL.GetUniformLocation(shaderProgramHandle, "lightPos");
-            Vector3 lightPos = origin; // new Vector3(2, 2, 2);
+            Vector3 lightPos = new Vector3(1, 0, 0);
             GL.Uniform3(lightPosLoc, lightPos.X, lightPos.Y, lightPos.Z);
 
             int viewPosLoc = GL.GetUniformLocation(shaderProgramHandle, "viewPos");
-            Vector3 viewPos = origin;
+            Vector3 viewPos = camera.position;
             GL.Uniform3(viewPosLoc, viewPos.X, viewPos.Y, viewPos.Z);
 
             int lightColLoc = GL.GetUniformLocation(shaderProgramHandle, "lightColor");
-            Vector3 lightCol = new Vector3(0.6f, 0.5f, 0.7f);
+            lightCol.X = (float)Math.Sin(((double)frameNumber + 1) / 10000);
+            lightCol.Y = (float)Math.Sin(((double)frameNumber + 3) / 3333);
+            lightCol.Z = (float)Math.Sin(((double)frameNumber + 5) / 5000);
             GL.Uniform3(lightColLoc, lightCol.X, lightCol.Y, lightCol.Z);
 
             int objectColLoc = GL.GetUniformLocation(shaderProgramHandle, "objectColor");

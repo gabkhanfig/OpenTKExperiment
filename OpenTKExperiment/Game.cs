@@ -33,8 +33,6 @@ namespace WindowEngine
         {
             base.OnLoad();
 
-            Console.WriteLine("Press E to create a light where you are of a random colour");
-
             GL.ClearColor(0.2f, 0.5f, 0.9f, 1.0f);
 
             GL.Enable(EnableCap.DepthTest);
@@ -66,6 +64,11 @@ namespace WindowEngine
             newLight.lightPos = camera.Position;
 
             light = newLight;
+
+            Console.WriteLine("Use WASD to move around");
+            Console.WriteLine("Move your mouse to angle the camera");
+            Console.WriteLine("Scroll up to lower FOV, and scroll down to increase FOV");
+            Console.WriteLine("Press E to change lighting");
         }
 
         protected override void OnRenderFrame(FrameEventArgs e)

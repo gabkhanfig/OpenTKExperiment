@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using OpenTK.Graphics.OpenGL4;
 using OpenTK.Mathematics;
 
 namespace OpenTKExperiment
@@ -51,7 +52,8 @@ namespace OpenTKExperiment
         }
     }
 
-    public struct Square {
+    public class Square
+    {
         public Vertex v00;
         public Vertex v01;
         public Vertex v10;
@@ -69,12 +71,12 @@ namespace OpenTKExperiment
                 p01 = baseVector + new Vector3(0, length, 0);
                 p10 = baseVector + new Vector3(0, 0, length);
             }
-            else if(normal.Y == 1 || normal.Y == -1)
+            else if (normal.Y == 1 || normal.Y == -1)
             {
                 p01 = baseVector + new Vector3(length, 0, 0);
                 p10 = baseVector + new Vector3(0, 0, length);
             }
-            else if(normal.Z == 1 || normal.Z == -1)
+            else if (normal.Z == 1 || normal.Z == -1)
             {
                 p01 = baseVector + new Vector3(length, 0, 0);
                 p10 = baseVector + new Vector3(0, length, 0);
@@ -95,46 +97,88 @@ namespace OpenTKExperiment
             return inverse;
         }
     }
-
-    public struct Cube
+    public class CubeMesh
     {
-        public Vertex v000;
-        public Vertex v001;
-        public Vertex v010;
-        public Vertex v011;
-        public Vertex v100;
-        public Vertex v101;
-        public Vertex v110;
-        public Vertex v111;
+        public int vertexArrayObject;
+        public int vertexBufferHandle;
+        public int vertexCount;
+        public int elementBufferHandle;
+        public uint[] indices;
 
-        public Cube(Vector3 baseVector, float length)
+        public CubeMesh(Vector3 position, float length)
         {
-            Vector3 p000 = baseVector;
-            Vector3 p001 = new Vector3(baseVector.X + length, baseVector.Y, baseVector.Z);
-            Vector3 p010 = new Vector3(baseVector.X, baseVector.Y + length, baseVector.Z);
-            Vector3 p011 = new Vector3(baseVector.X + length, baseVector.Y + length, baseVector.Z);
-            Vector3 p100 = new Vector3(baseVector.X, baseVector.Y, baseVector.Z + length);
-            Vector3 p101 = new Vector3(baseVector.X + length, baseVector.Y, baseVector.Z + length);
-            Vector3 p110 = new Vector3(baseVector.X, baseVector.Y + length, baseVector.Z + length);
-            Vector3 p111 = new Vector3(baseVector.X + length, baseVector.Y + length, baseVector.Z + length);
+            Square bottom = new Square(position, length, -Vector3.UnitY);
+            Square north = new Square(position, length, -Vector3.UnitX);
+            Square east = new Square(position, length, -Vector3.UnitZ);
+            Square south = new Square(new Vector3(position.X + length, position.Y, position.Z), length, Vector3.UnitX);
+            Square west = new Square(new Vector3(position.X, position.Y, position.Z + length), length, Vector3.UnitZ);
+            Square top = new Square(new Vector3(position.X, position.Y + length, position.Z), length, Vector3.UnitY);
 
-            Vector3 c000 = new Vector3(0, 0, 0);
-            Vector3 c001 = new Vector3(0, 0, 1);
-            Vector3 c010 = new Vector3(0, 1, 0);
-            Vector3 c011 = new Vector3(0, 1, 1);
-            Vector3 c100 = new Vector3(1, 0, 0);
-            Vector3 c101 = new Vector3(1, 0, 1);
-            Vector3 c110 = new Vector3(1, 1, 0);
-            Vector3 c111 = new Vector3(1, 1, 1);
 
-            v000 = new Vertex(p000, Vector3.Zero, c000, new Vector2(0, 0)); // good
-            v001 = new Vertex(p001, Vector3.Zero, c001, new Vector2(1, 0)); // good
-            v010 = new Vertex(p010, Vector3.Zero, c010, new Vector2(0, 1)); // good
-            v011 = new Vertex(p011, Vector3.Zero, c011, new Vector2(1, 1)); // good
-            v100 = new Vertex(p100, Vector3.Zero, c100, new Vector2(1, 0)); // good
-            v101 = new Vertex(p101, Vector3.Zero, c101, new Vector2(0, 0)); // maybe
-            v110 = new Vertex(p110, Vector3.Zero, c110, new Vector2(1, 1)); // good
-            v111 = new Vertex(p111, Vector3.Zero, c111, new Vector2(0, 1)); // maybe
+            Vertex[] vertices = new Vertex[] // first three vertices are the position, next 3 are colour
+            {
+                bottom.v00, bottom.v01, bottom.v11, bottom.v10,
+
+                north.v00, north.v01, north.v11, north.v10,
+
+                east.v00, east.v01, east.v11, east.v10,
+
+                south.v00, south.v01, south.v11, south.v10,
+
+                west.v00, west.v01, west.v11, west.v10,
+
+                top.v00, top.v01, top.v11, top.v10
+            };
+
+            vertexArrayObject = GL.GenVertexArray();
+            GL.BindVertexArray(vertexArrayObject);
+
+            vertexBufferHandle = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
+            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float) * (3 + 3 + 3 + 2), vertices, BufferUsageHint.StaticDraw);
+            vertexCount = vertices.Length;
+
+            indices = new uint[]
+            {
+                0, 1, 3, // bottom
+                1, 2, 3,
+
+                4, 5, 7, // north
+                5, 6, 7,
+
+                8, 9, 11, // east
+                9, 10, 11,
+
+                12, 13, 15, // south
+                13, 14, 15,
+
+                16, 17, 19, // west
+                17, 18, 19,
+
+                20, 21, 23, // top
+                21, 22, 23
+            };
+
+            elementBufferHandle = GL.GenBuffer();
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, elementBufferHandle);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, indices.Length * sizeof(uint), indices, BufferUsageHint.StaticDraw);
+
+            const int totalStride = (3 + 3 + 3 + 2) * sizeof(float);
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, totalStride, 0); // vertex shader layout location 0 position
+            GL.EnableVertexAttribArray(0);
+            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, totalStride, 12); // vertex shader layout location 1 normal
+            GL.EnableVertexAttribArray(1);
+            GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, totalStride, 24); // vertex shader layout location 2 colour
+            GL.EnableVertexAttribArray(2);
+            GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, totalStride, 36); // vertex shader layout location 2 texture
+            GL.EnableVertexAttribArray(3);
+        }
+
+        public void draw()
+        {
+            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
+            GL.DrawArrays(PrimitiveType.Triangles, 0, vertexCount);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
         }
     }
 }

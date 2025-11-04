@@ -14,356 +14,128 @@ namespace WindowEngine
 {
     public class Game : GameWindow
     {
-        private int vertexBufferHandle;
-        private int shaderProgramHandle;
-        private int vertexArrayHandle;
-        private int textureHandle;
-        private Vector3 cameraPosition;
-        private Vector3 lookDirection;
-        private int frameNumber;
-        private bool wireframe;
-        private int vertexCount;
+        private Shader shader;
+
+        private Texture texture;
+
         private Camera camera;
-        Square bottom = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitY);
-        Square north = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitX);
-        Square east = new Square(new Vector3(-0.25f, -0.25f, -0.25f), 0.5f, Vector3.UnitZ);
-        Square south = new Square(new Vector3(0.25f, -0.25f, -0.25f), 0.5f, -Vector3.UnitX);
-        Square west = new Square(new Vector3(-0.25f, -0.25f, 0.25f), 0.5f, -Vector3.UnitZ);
-        Square top = new Square(new Vector3(-0.25f, 0.25f, -0.25f), 0.5f, -Vector3.UnitY); 
-        Vector3 lightCol = new Vector3(0.6f, 0.5f, 0.7f);
 
-        // Default wrapping and filtering
-        private TextureWrapMode wrapMode = TextureWrapMode.Repeat;
-        private TextureMinFilter minFilter = TextureMinFilter.LinearMipmapLinear;
-        private TextureMagFilter magFilter = TextureMagFilter.Linear;
+        private CubeMesh cube;
 
-        // Constructor
-        public Game()
-            : base(GameWindowSettings.Default, NativeWindowSettings.Default)
+        private PointLight light;
+
+        public Game(GameWindowSettings gameWindowSettings, NativeWindowSettings nativeWindowSettings)
+            : base(gameWindowSettings, nativeWindowSettings)
         {
-            // Set window size to 1280x768
-            this.Size = new Vector2i(768, 768);
-
-            this.cameraPosition = new Vector3(0, 0, 1);
-            this.lookDirection = new Vector3(0, 0, 0);
-            this.frameNumber = 0;
-            this.wireframe = false;
-            this.camera = new Camera(new Vector3(0, 0, -1));
-
-            // Center the window on the screen
-            this.CenterWindow(this.Size);
         }
 
-        // Called automatically whenever the window is resized
-        protected override void OnResize(ResizeEventArgs e)
-        {
-            // Update the OpenGL viewport to match the new window dimensions
-            GL.Viewport(0, 0, e.Width, e.Height);
-            base.OnResize(e);
-        }
-
-        // Called once when the game starts, ideal for loading resources
         protected override void OnLoad()
         {
             base.OnLoad();
 
-            Console.WriteLine("CONTROLS:");
-            Console.WriteLine("Key E: Toggle wireframe");
-            Console.WriteLine("WASD: Spin Cube");
+            Console.WriteLine("Press E to create a light where you are of a random colour");
 
-            // Set the background color (RGBA)
-            GL.ClearColor(new Color4(0.5f, 0.7f, 0.8f, 1f));
-            // backface culling
-            GL.Enable(EnableCap.CullFace);
-            // Definitely need to re-order the vertices
-            GL.CullFace(CullFaceMode.Front);
+            GL.ClearColor(0.2f, 0.5f, 0.9f, 1.0f);
 
-            
+            GL.Enable(EnableCap.DepthTest);
 
-            // Define a simple triangle in normalized device coordinates (NDC)
-            Vertex[] vertices = new Vertex[] // first three vertices are the position, next 3 are colour
-            {
-                bottom.v00, bottom.v01, bottom.v11,
-                bottom.v00, bottom.v11, bottom.v10,
-                
-                north.v00, north.v10, north.v11,
-                north.v00, north.v11, north.v01,
+            cube = new CubeMesh(new Vector3(0, -1, 0), 1);
 
-                east.v01, east.v00, east.v10,
-                east.v01, east.v10, east.v11,
+            shader = Shader.FromFiles("Shaders/shader.vert", "Shaders/lighting.frag");
+            shader.Use();
 
-                south.v10, south.v00, south.v01,
-                south.v10, south.v01, south.v11,
+            texture = Texture.LoadFromFile("Assets/wall.jpg");
+            texture.Use(TextureUnit.Texture0);
 
-                west.v00, west.v01, west.v11,
-                west.v00, west.v11, west.v10,
 
-                top.v00, top.v10, top.v11,
-                top.v00, top.v11, top.v01
-            };
+            shader.SetInt("ourTexture", 0);
 
-            // Generate a Vertex Buffer Object (VBO) to store vertex data on GPU
-            vertexBufferHandle = GL.GenBuffer();
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
-            GL.BufferData(BufferTarget.ArrayBuffer, vertices.Length * sizeof(float) * (3 + 3 + 3 + 2), vertices, BufferUsageHint.StaticDraw);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0); // Unbind to prevent accidental modifications
-            vertexCount = vertices.Length;
+            camera = new Camera(new Vector3(0, 0.5f, 4), Size.X / (float)Size.Y);
 
-            // Generate a Vertex Array Object (VAO) to store the VBO configuration
-            vertexArrayHandle = GL.GenVertexArray();
-            GL.BindVertexArray(vertexArrayHandle);
+            CursorState = CursorState.Grabbed;
 
-            // Bind the VBO and define the layout of vertex data for shaders
-            GL.BindBuffer(BufferTarget.ArrayBuffer, vertexBufferHandle);
-            const int totalStride = (3 + 3 + 3 + 2) * sizeof(float);
-            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, totalStride, 0); // vertex shader layout location 0 position
-            GL.EnableVertexAttribArray(0);
-            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, totalStride, 12); // vertex shader layout location 1 normal
-            GL.EnableVertexAttribArray(1);
-            GL.VertexAttribPointer(2, 3, VertexAttribPointerType.Float, false, totalStride, 24); // vertex shader layout location 2 colour
-            GL.EnableVertexAttribArray(2);
-            GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, totalStride, 36); // vertex shader layout location 2 texture
-            GL.EnableVertexAttribArray(3);
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.BindVertexArray(0);
+            Random random = new Random();
+            Vector3 lightCol = new Vector3(
+                (float)random.NextDouble() * (float)random.NextDouble(),
+                (float)random.NextDouble() * (float)random.NextDouble(),
+                (float)random.NextDouble() * (float)random.NextDouble()
+            );
 
-            // Vertex shader: positions each vertex
-            string vertexShaderCode = @"
-                #version 330 core
-                layout(location = 0) in vec3 aPosition; // Vertex position input
-                layout(location = 1) in vec3 aNormal; // Vertex normal input
-                layout(location = 2) in vec3 aColour; // Vertex colour input
-                layout(location = 3) in vec2 aTexCoord; // Vertex texture input
+            PointLight newLight = new PointLight();
+            newLight.lightColor = lightCol;
+            newLight.lightPos = camera.Position;
 
-                uniform mat4 model;
-                uniform mat4 view;
-                uniform mat4 projection;
-
-                out vec3 fragPos;
-                out vec3 normal;
-                out vec3 colour;
-                out vec2 texCoord;
-
-                void main()
-                {
-                    // gl_Position = view * vec4(aPosition, 1.0);
-                    fragPos = vec3(model * vec4(aPosition, 1.0));
-                    normal = mat3(transpose(inverse(model))) * aNormal;
-                    gl_Position = projection * view * vec4(aPosition, 1.0);
-                    colour = aColour;
-                    texCoord = aTexCoord;
-                }
-            ";
-
-            // Fragment shader: outputs a single color
-            string fragmentShaderCode = @"
-                #version 330 core
-                out vec4 FragColor;
-                in vec3 fragPos;
-                in vec3 normal;
-                in vec3 colour;
-                in vec2 texCoord;
-
-                uniform vec3 lightPos; // Position of the point light
-                uniform vec3 viewPos;  // Camera position
-                uniform vec3 lightColor; // Color of the light
-                uniform vec3 objectColor; // Color of the object
-
-                uniform sampler2D ourTexture;
-
-                void main()
-                {
-                    // FragColor = vec4(colour.r, colour.g, colour.b, 1.0f) * texture(ourTexture, texCoord);
-                    // FragColor = vec4(colour.r, colour.g, colour.b, 1.0f);
-
-                    // Ambient
-                    float ambientStrength = 0.15;
-                    vec3 ambient = ambientStrength * lightColor;
- 
-                    // Diffuse
-                    vec3 norm = normalize(normal);
-                    vec3 lightDir = normalize(lightPos - fragPos);
-                    float diff = max(dot(norm, lightDir), 0.0);
-                    vec3 diffuse = diff * lightColor;
- 
-                    // Specular
-                    float specularStrength = 0.9;
-                    vec3 viewDir = normalize(viewPos - fragPos);
-                    vec3 reflectDir = reflect(-lightDir, norm);
-                    float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32);
-                    vec3 specular = specularStrength * spec * lightColor;
- 
-                    // Combine results
-                    vec3 result = (ambient + diffuse + specular) * objectColor;
-                    FragColor = vec4(result, 1.0) * texture(ourTexture, texCoord);
-                }
-            ";
-
-            // Compile shaders
-            int vertexShaderHandle = GL.CreateShader(ShaderType.VertexShader);
-            GL.ShaderSource(vertexShaderHandle, vertexShaderCode);
-            GL.CompileShader(vertexShaderHandle);
-            CheckShaderCompile(vertexShaderHandle, "Vertex Shader");
-
-            int fragmentShaderHandle = GL.CreateShader(ShaderType.FragmentShader);
-            GL.ShaderSource(fragmentShaderHandle, fragmentShaderCode);
-            GL.CompileShader(fragmentShaderHandle);
-            CheckShaderCompile(fragmentShaderHandle, "Fragment Shader");
-
-            // Create shader program and link shaders
-            shaderProgramHandle = GL.CreateProgram();
-            GL.AttachShader(shaderProgramHandle, vertexShaderHandle);
-            GL.AttachShader(shaderProgramHandle, fragmentShaderHandle);
-            GL.LinkProgram(shaderProgramHandle);
-
-            // Cleanup shaders after linking (no longer needed individually)
-            GL.DetachShader(shaderProgramHandle, vertexShaderHandle);
-            GL.DetachShader(shaderProgramHandle, fragmentShaderHandle);
-            GL.DeleteShader(vertexShaderHandle);
-            GL.DeleteShader(fragmentShaderHandle);
-
-            string baseDir = AppDomain.CurrentDomain.BaseDirectory;
-            string projectDirectory = Directory.GetParent(baseDir).Parent.Parent.Parent.FullName;
-            Console.WriteLine(projectDirectory);
-            string texturePath = Path.Combine(projectDirectory, "Assets", "wall.jpg");
-            Console.WriteLine(texturePath);
-            textureHandle = LoadTexture(texturePath);
+            light = newLight;
         }
 
-        // Called every frame to update game logic
-        protected override void OnUpdateFrame(FrameEventArgs args)
+        protected override void OnRenderFrame(FrameEventArgs e)
         {
-            camera.update((float)args.Time, KeyboardState);
+            base.OnRenderFrame(e);
 
-            base.OnUpdateFrame(args);
-            // Handle input, animations, physics, AI, etc.
-        }
+            GL.Clear(ClearBufferMask.ColorBufferBit | ClearBufferMask.DepthBufferBit);
 
-        // Called every frame to render graphics
-        protected override void OnRenderFrame(FrameEventArgs args)
-        {
-            Matrix4 model = Matrix4.Identity;
-            Matrix4 view = camera.viewMatrix();
-            Matrix4 projection = Matrix4.Identity;
+            texture.Use(TextureUnit.Texture0);
+            shader.Use();
 
-            base.OnRenderFrame(args);
+            var model = Matrix4.Identity;
+            shader.SetMatrix4("model", model);
+            shader.SetMatrix4("view", camera.GetViewMatrix());
+            shader.SetMatrix4("projection", camera.GetProjectionMatrix());
 
-            // Clear the screen with background color
-            GL.Clear(ClearBufferMask.ColorBufferBit);
+            string access = "pointLight.";
+            shader.SetVector3($"{access}objectColor", new Vector3(1.0f, 1.0f, 1.0f));
+            shader.SetVector3($"{access}lightColor", light.lightColor);
+            shader.SetVector3($"{access}lightPos", light.lightPos);
+            shader.SetVector3($"{access}viewPos", camera.Position);
 
-            // Use our shader program
-            GL.UseProgram(shaderProgramHandle);
-            // And texture
-            GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, textureHandle);
+            GL.BindVertexArray(cube.vertexArrayObject);
+            GL.DrawElements(PrimitiveType.Triangles, cube.indices.Length, DrawElementsType.UnsignedInt, 0);  
 
-            int modelLocation = GL.GetUniformLocation(shaderProgramHandle, "model");
-            GL.UniformMatrix4(modelLocation, true, ref model);
-            int viewLocation = GL.GetUniformLocation(shaderProgramHandle, "view");
-            GL.UniformMatrix4(viewLocation, true, ref view);
-            int projectionLocation = GL.GetUniformLocation(shaderProgramHandle, "projection");
-            GL.UniformMatrix4(projectionLocation, true, ref projection);
-
-            int lightPosLoc = GL.GetUniformLocation(shaderProgramHandle, "lightPos");
-            Vector3 lightPos = new Vector3(1, 0, 0);
-            GL.Uniform3(lightPosLoc, lightPos.X, lightPos.Y, lightPos.Z);
-
-            int viewPosLoc = GL.GetUniformLocation(shaderProgramHandle, "viewPos");
-            Vector3 viewPos = camera.position;
-            GL.Uniform3(viewPosLoc, viewPos.X, viewPos.Y, viewPos.Z);
-
-            int lightColLoc = GL.GetUniformLocation(shaderProgramHandle, "lightColor");
-            lightCol.X = (float)Math.Sin(((double)frameNumber + 1) / 10000);
-            lightCol.Y = (float)Math.Sin(((double)frameNumber + 3) / 3333);
-            lightCol.Z = (float)Math.Sin(((double)frameNumber + 5) / 5000);
-            GL.Uniform3(lightColLoc, lightCol.X, lightCol.Y, lightCol.Z);
-
-            int objectColLoc = GL.GetUniformLocation(shaderProgramHandle, "objectColor");
-            Vector3 objectCol = new Vector3(1, 1, 1);
-            GL.Uniform3(objectColLoc, lightCol.X, lightCol.Y, lightCol.Z);
-
-            // Bind the VAO and draw the triangle
-            GL.BindVertexArray(vertexArrayHandle);
-            GL.DrawArrays(PrimitiveType.Triangles, 0, vertexCount);
-            GL.BindVertexArray(0);
-
-            // Display the rendered frame
             SwapBuffers();
-
-            frameNumber += 1;
         }
 
-        // Called when the game is closing or resources need to be released
-        protected override void OnUnload()
+        protected override void OnUpdateFrame(FrameEventArgs e)
         {
-            // Unbind and delete buffers and shader program
-            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-            GL.DeleteBuffer(vertexBufferHandle);
+            base.OnUpdateFrame(e);
 
-            GL.BindVertexArray(0);
-            GL.DeleteVertexArray(vertexArrayHandle);
-
-            GL.UseProgram(0);
-            GL.DeleteProgram(shaderProgramHandle);
-
-            base.OnUnload();
-        }
-
-        // Helper function to check for shader compilation errors
-        private void CheckShaderCompile(int shaderHandle, string shaderName)
-        {
-            GL.GetShader(shaderHandle, ShaderParameter.CompileStatus, out int success);
-            if (success == 0)
+            if (!IsFocused) // Check to see if the window is focused
             {
-                string infoLog = GL.GetShaderInfoLog(shaderHandle);
-                Console.WriteLine($"Error compiling {shaderName}: {infoLog}");
-            }
-        }
-        protected override void OnKeyDown(KeyboardKeyEventArgs e)
-        {
-            if (e.Key == Keys.E)
-            {
-                if(this.wireframe){
-                    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Fill);
-                    this.wireframe = false;
-                }
-                else {
-                    GL.PolygonMode(MaterialFace.FrontAndBack, PolygonMode.Line);
-                    this.wireframe = true;
-                }
-            }
-            base.OnKeyDown(e);
-        }
-
-        private int LoadTexture(string path)
-        {
-            if (!File.Exists(path)) throw new FileNotFoundException($"Could not find texture file: {path}");
-
-            int texId = GL.GenTexture();
-            GL.BindTexture(TextureTarget.Texture2D, texId);
-
-            // Initial wrap and filter
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)wrapMode);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)wrapMode);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)minFilter);
-            GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)magFilter);
-
-            using (Bitmap bmp = new Bitmap(path))
-            {
-                bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
-                var data = bmp.LockBits(
-                    new Rectangle(0, 0, bmp.Width, bmp.Height),
-                    ImageLockMode.ReadOnly,
-                    System.Drawing.Imaging.PixelFormat.Format32bppArgb); // fully qualified
-
-                GL.TexImage2D(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgba, data.Width, data.Height, 0,
-                              OpenTK.Graphics.OpenGL4.PixelFormat.Bgra, PixelType.UnsignedByte, data.Scan0);
-
-                bmp.UnlockBits(data);
+                return;
             }
 
-            GL.GenerateMipmap(GenerateMipmapTarget.Texture2D);
-            return texId;
+            var input = KeyboardState;
+
+            if (input.IsKeyDown(Keys.Escape))
+            {
+                Close();
+            }
+
+            if (input.IsKeyPressed(Keys.E))
+            { 
+                Random random = new Random();
+                Vector3 lightCol = new Vector3(
+                    (float)random.NextDouble() * (float)random.NextDouble(),
+                    (float)random.NextDouble() * (float)random.NextDouble(),
+                    (float)random.NextDouble() * (float)random.NextDouble()
+                );
+
+                PointLight newLight = new PointLight();
+                newLight.lightColor = lightCol;
+                newLight.lightPos = camera.Position;
+
+                light = newLight;
+            }
+
+            camera.Update((float)e.Time, KeyboardState, MouseState);
+        }
+
+        protected override void OnResize(ResizeEventArgs e)
+        {
+            base.OnResize(e);
+
+            GL.Viewport(0, 0, Size.X, Size.Y);
+            // We need to update the aspect ratio once the window has been resized.
+            camera.AspectRatio = Size.X / (float)Size.Y;
         }
     }
 }

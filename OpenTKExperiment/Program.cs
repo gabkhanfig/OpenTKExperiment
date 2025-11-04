@@ -1,4 +1,6 @@
 ﻿using OpenTK.Mathematics;
+using OpenTK.Windowing.Common;
+using OpenTK.Windowing.Desktop;
 using System;           // Import basic system functionalities like Console, Math, etc.
 using WindowEngine;     // Import the WindowEngine namespace, which contains Game class and other related classes
 
@@ -39,8 +41,15 @@ namespace WindowEngine
         // Main method: the starting point of every C# console application
         static void Main(string[] args)
         {
+            var nativeWindowSettings = new NativeWindowSettings()
+            {
+                ClientSize = new Vector2i(800, 600),
+                Title = "LearnOpenTK - Camera",
+                // This is needed to run on macos
+                Flags = ContextFlags.ForwardCompatible,
+            };
             // 'using' ensures proper disposal of resources when the Game object is no longer needed
-            using (Game game = new Game())
+            using (Game game = new Game(GameWindowSettings.Default, nativeWindowSettings))
             { 
                 game.Run();
             }
